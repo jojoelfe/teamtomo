@@ -12,7 +12,7 @@ This roadmap delivers a mask-artifact-free resolution estimation method integrat
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Implementation** - Implement modified FSC/mFSC functions with consistent API
+- [x] **Phase 1: Core Implementation** - Implement modified FSC/mFSC functions with consistent API
 - [ ] **Phase 2: Validation** - Verify correctness through behavioral tests
 
 ## Phase Details
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md -- Implement mFSC algorithm (2D+3D) with tests and package exports
+- [x] 01-01-PLAN.md -- Implement mFSC algorithm (2D+3D) with tests and package exports
 
 ### Phase 2: Validation
 **Goal**: mFSC implementation correctness is verified through behavioral tests
@@ -41,10 +41,10 @@ Plans:
   2. mFSC with mask on uncorrelated noise returns correlation values near zero across all shells
   3. mFSC with mask on identical inputs returns correlation values near one across all shells
   4. Both 2D and 3D variants produce output with correct shape (number of shells)
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD
+- [ ] 02-01-PLAN.md -- Rigorous validation tests comparing mFSC to standard FSC, with non-trivial masks and extended shape coverage
 
 ## Progress
 
@@ -53,5 +53,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Implementation | 0/1 | Not started | - |
-| 2. Validation | 0/TBD | Not started | - |
+| 1. Core Implementation | 1/1 | Complete | 2026-03-13 |
+| 2. Validation | 0/1 | Not started | - |

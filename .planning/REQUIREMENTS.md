@@ -20,10 +20,10 @@
 
 ### Testing
 
-- [ ] **TEST-01**: mFSC without mask (all-ones) produces similar results to standard FSC (with Gaussian vs binary shells)
-- [ ] **TEST-02**: mFSC with mask on uncorrelated data returns values near zero
-- [ ] **TEST-03**: mFSC with mask on identical data returns values near one
-- [ ] **TEST-04**: 2D and 3D variants produce correct output shapes
+- [x] **TEST-01**: mFSC without mask (all-ones) produces similar results to standard FSC (with Gaussian vs binary shells)
+- [x] **TEST-02**: mFSC with mask on uncorrelated data returns values near zero
+- [x] **TEST-03**: mFSC with mask on identical data returns values near one
+- [x] **TEST-04**: 2D and 3D variants produce correct output shapes
 
 ## v2 Requirements
 
@@ -57,10 +57,10 @@
 | API-01 | Phase 1 | Complete |
 | API-02 | Phase 1 | Complete |
 | API-03 | Phase 1 | Complete |
-| TEST-01 | Phase 2 | Pending |
-| TEST-02 | Phase 2 | Pending |
-| TEST-03 | Phase 2 | Pending |
-| TEST-04 | Phase 2 | Pending |
+| TEST-01 | Phase 2 | Complete |
+| TEST-02 | Phase 2 | Complete |
+| TEST-03 | Phase 2 | Complete |
+| TEST-04 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 11 total
