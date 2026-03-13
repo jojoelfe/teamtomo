@@ -15,10 +15,16 @@ from .fsc import (
     fourier_shell_correlation,
     fsc,
 )
+from .mfsc import (
+    modified_fourier_ring_correlation,
+    modified_fourier_shell_correlation,
+)
 
 __all__ = [
     "fourier_ring_correlation",
     "fourier_shell_correlation",
     "fourier_correlation",
     "fsc",
+    "modified_fourier_ring_correlation",
+    "modified_fourier_shell_correlation",
 ]
