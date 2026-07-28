@@ -28,23 +28,23 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.TEAMTOMO_APP_ID }}
           private-key: ${{ secrets.TEAMTOMO_APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - uses: astral-sh/setup-uv@v7
 
       - name: Wait for CI to pass
-        uses: lewagon/wait-on-check-action@v1.5.0
+        uses: lewagon/wait-on-check-action@v1.8.1
         with:
           ref: ${{ github.sha }}
           check-name: "Test All Packages | Python 3.13"  # NOTE: Must match the CI job name for Python 3.13
@@ -57,7 +57,20 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           VERSION=${TAG#teamtomo@}
           echo "Found release tag: $TAG"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update CITATION.cff authors
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          uv run python scripts/update_citation_authors.py
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add CITATION.cff
+          git diff --cached --quiet || git commit -m "update citation authors for ${{ steps.check-tag.outputs.version }} release"
+          git push origin HEAD:main
 
       - name: Tag all workspace packages
         run: |
@@ -73,11 +86,11 @@ jobs:
             TAG="${pkg_name}@${VERSION}"
             echo "Creating tag: $TAG"
             if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-              git tag "$TAG"
+              git tag -a "$TAG" "${{ github.sha }}" -m "Release $VERSION"
+              git push origin "$TAG"
             else
               echo "Tag $TAG already exists, skipping"
             fi
           done
 
-          git push origin --tags
-          echo "✅ Tagged all packages. Individual deployment jobs will trigger automatically."
+          echo "✅ Tagged and pushed all packages individually. Deploy jobs will trigger per tag."

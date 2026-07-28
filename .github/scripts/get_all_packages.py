@@ -4,9 +4,11 @@ from pathlib import Path
 
 # Define workspace member glob patterns (same as pyproject.toml)
 PATTERNS = [
+    "pyproject.toml",  # root meta-package (teamtomo)
     "packages/io/*/pyproject.toml",
     "packages/primitives/*/pyproject.toml",
     "packages/algorithms/*/pyproject.toml",
+    "packages/utils/*/pyproject.toml",
     "packages/wip/*/pyproject.toml",
 ]
 
