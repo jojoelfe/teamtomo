@@ -4,6 +4,8 @@ import torch
 from torch_fourier_shell_correlation import (
     fourier_ring_correlation,
     fourier_shell_correlation,
+    modified_fourier_ring_correlation,
+    modified_fourier_shell_correlation,
 )
 
 
@@ -352,3 +354,347 @@ def test_broadcasting_invalid_spatial_dims():
 
     with pytest.raises(ValueError, match="Spatial dimensions must match"):
         fourier_shell_correlation(a_3d, b_3d)
+
+
+# --- Modified Fourier Shell Correlation (mFSC) Tests ---
+
+
+def test_mfsc_exports():
+    """Test that mFSC functions are importable from package root and in __all__."""
+    import torch_fourier_shell_correlation
+
+    # Check functions are importable (already done via top-level import)
+    assert callable(modified_fourier_ring_correlation)
+    assert callable(modified_fourier_shell_correlation)
+
+    # Check they are in __all__
+    assert "modified_fourier_ring_correlation" in torch_fourier_shell_correlation.__all__
+    assert "modified_fourier_shell_correlation" in torch_fourier_shell_correlation.__all__
+
+
+def test_modified_fourier_ring_correlation():
+    """Test 2D mFRC: identical images with all-ones mask should give correlations near 1."""
+    torch.manual_seed(42)
+    a = torch.rand((16, 16))
+    b = a.clone()
+    mask = torch.ones((16, 16))
+
+    result = modified_fourier_ring_correlation(a, b, mask)
+
+    # Output should have correct number of shells
+    n_shells = min(16, 16) // 2 + 1  # 9
+    assert result.shape == (n_shells,)
+
+    # Identical images should have correlation near 1 for all shells
+    assert torch.allclose(result, torch.ones(n_shells), atol=0.05)
+
+
+def test_modified_fourier_shell_correlation():
+    """Test 3D mFSC: identical volumes with all-ones mask should give correlations near 1."""
+    torch.manual_seed(42)
+    a = torch.rand((16, 16, 16))
+    b = a.clone()
+    mask = torch.ones((16, 16, 16))
+
+    result = modified_fourier_shell_correlation(a, b, mask)
+
+    # Output should have correct number of shells
+    n_shells = min(16, 16, 16) // 2 + 1  # 9
+    assert result.shape == (n_shells,)
+
+    # Identical volumes should have correlation near 1 for all shells
+    assert torch.allclose(result, torch.ones(n_shells), atol=0.05)
+
+
+def test_mfsc_output_shape():
+    """Test that mFSC output shape is min(spatial_dims) // 2 + 1."""
+    torch.manual_seed(42)
+
+    # 2D square
+    a_sq = torch.rand((16, 16))
+    mask_sq = torch.ones((16, 16))
+    result_sq = modified_fourier_ring_correlation(a_sq, a_sq.clone(), mask_sq)
+    assert result_sq.shape == (9,)  # 16 // 2 + 1 = 9
+
+    # 2D rectangular
+    a_rect = torch.rand((12, 16))
+    mask_rect = torch.ones((12, 16))
+    result_rect = modified_fourier_ring_correlation(a_rect, a_rect.clone(), mask_rect)
+    assert result_rect.shape == (7,)  # min(12, 16) // 2 + 1 = 7
+
+    # 3D cubic
+    a_3d = torch.rand((16, 16, 16))
+    mask_3d = torch.ones((16, 16, 16))
+    result_3d = modified_fourier_shell_correlation(a_3d, a_3d.clone(), mask_3d)
+    assert result_3d.shape == (9,)  # 16 // 2 + 1 = 9
+
+    # 3D rectangular
+    a_3d_rect = torch.rand((10, 14, 16))
+    mask_3d_rect = torch.ones((10, 14, 16))
+    result_3d_rect = modified_fourier_shell_correlation(
+        a_3d_rect, a_3d_rect.clone(), mask_3d_rect
+    )
+    assert result_3d_rect.shape == (6,)  # min(10, 14, 16) // 2 + 1 = 6
+
+
+def test_mfsc_sigma_parameter():
+    """Test that different sigma values produce different correlation curves."""
+    torch.manual_seed(42)
+    a = torch.rand((16, 16))
+    b = torch.rand((16, 16))
+    mask = torch.ones((16, 16))
+
+    result_default = modified_fourier_ring_correlation(a, b, mask, sigma_pixels=1.0)
+    result_narrow = modified_fourier_ring_correlation(a, b, mask, sigma_pixels=0.5)
+    result_wide = modified_fourier_ring_correlation(a, b, mask, sigma_pixels=2.0)
+
+    # Different sigma values should produce different results
+    assert not torch.allclose(result_default, result_narrow, atol=1e-4)
+    assert not torch.allclose(result_default, result_wide, atol=1e-4)
+
+
+def test_mfsc_batched():
+    """Test batched mFSC: output batch dims match input batch dims."""
+    torch.manual_seed(42)
+
+    # 2D batched
+    batch_size = 3
+    a_2d_batch = torch.rand((batch_size, 16, 16))
+    b_2d_batch = torch.rand((batch_size, 16, 16))
+    mask_2d = torch.ones((16, 16))
+
+    result_2d = modified_fourier_ring_correlation(a_2d_batch, b_2d_batch, mask_2d)
+    assert result_2d.shape == (batch_size, 9)  # (3, min(16,16)//2+1)
+
+    # Verify batched matches individual processing
+    for i in range(batch_size):
+        result_individual = modified_fourier_ring_correlation(
+            a_2d_batch[i], b_2d_batch[i], mask_2d
+        )
+        assert torch.allclose(result_2d[i], result_individual, atol=1e-6)
+
+    # 3D batched
+    a_3d_batch = torch.rand((2, 12, 12, 12))
+    b_3d_batch = torch.rand((2, 12, 12, 12))
+    mask_3d = torch.ones((12, 12, 12))
+
+    result_3d = modified_fourier_shell_correlation(a_3d_batch, b_3d_batch, mask_3d)
+    assert result_3d.shape == (2, 7)  # (2, min(12,12,12)//2+1)
+
+    # Verify batched matches individual processing
+    for i in range(2):
+        result_individual_3d = modified_fourier_shell_correlation(
+            a_3d_batch[i], b_3d_batch[i], mask_3d
+        )
+        assert torch.allclose(result_3d[i], result_individual_3d, atol=1e-6)
+
+
+def test_mfsc_uncorrelated_noise():
+    """Test that mFSC of uncorrelated noise returns near-zero correlations."""
+    torch.manual_seed(42)
+    a = torch.randn((16, 16))
+    torch.manual_seed(137)
+    b = torch.randn((16, 16))
+    mask = torch.ones((16, 16))
+
+    result = modified_fourier_ring_correlation(a, b, mask)
+
+    # Shell 0 (DC) is always 1.0
+    assert result[0] == 1.0
+
+    # Non-DC shells should be near zero for uncorrelated noise
+    # Allow generous tolerance since 16x16 is small
+    assert torch.all(torch.abs(result[1:]) < 0.5)
+
+
+# --- Phase 2: Validation Tests ---
+
+
+def _circular_mask(h: int, w: int) -> torch.Tensor:
+    """Create a 2D circular mask with 1.0 inside, 0.0 outside.
+
+    Circle has radius min(h, w) // 2, centered at (h // 2, w // 2).
+    """
+    cy, cx = h // 2, w // 2
+    radius = min(h, w) // 2
+    y = torch.arange(h, dtype=torch.float32)
+    x = torch.arange(w, dtype=torch.float32)
+    yy, xx = torch.meshgrid(y, x, indexing="ij")
+    dist = torch.sqrt((yy - cy) ** 2 + (xx - cx) ** 2)
+    return (dist <= radius).float()
+
+
+def _spherical_mask(d: int, h: int, w: int) -> torch.Tensor:
+    """Create a 3D spherical mask with 1.0 inside, 0.0 outside.
+
+    Sphere has radius min(d, h, w) // 2, centered at (d // 2, h // 2, w // 2).
+    """
+    cz, cy, cx = d // 2, h // 2, w // 2
+    radius = min(d, h, w) // 2
+    z = torch.arange(d, dtype=torch.float32)
+    y = torch.arange(h, dtype=torch.float32)
+    x = torch.arange(w, dtype=torch.float32)
+    zz, yy, xx = torch.meshgrid(z, y, x, indexing="ij")
+    dist = torch.sqrt((zz - cz) ** 2 + (yy - cy) ** 2 + (xx - cx) ** 2)
+    return (dist <= radius).float()
+
+
+def test_mfsc_vs_standard_fsc_2d():
+    """TEST-01: mFSC with all-ones mask produces trends similar to standard FSC (2D)."""
+    torch.manual_seed(42)
+    a = torch.rand((32, 32))
+    b = a + 0.5 * torch.randn_like(a)  # Partially correlated copy
+
+    # Compute both standard and modified FSC
+    frc_standard = fourier_ring_correlation(a, b)
+    frc_modified = modified_fourier_ring_correlation(a, b, torch.ones(32, 32))
+
+    # Same number of shells
+    assert frc_standard.shape == frc_modified.shape
+
+    # Pearson correlation between curves should be > 0.8 (trends agree)
+    std_centered = frc_standard - frc_standard.mean()
+    mod_centered = frc_modified - frc_modified.mean()
+    pearson = (std_centered * mod_centered).sum() / (
+        torch.sqrt((std_centered**2).sum() * (mod_centered**2).sum())
+    )
+    assert pearson > 0.8, f"Pearson correlation {pearson:.3f} not > 0.8"
+
+
+def test_mfsc_vs_standard_fsc_3d():
+    """TEST-01: mFSC with all-ones mask produces trends similar to standard FSC (3D)."""
+    torch.manual_seed(42)
+    a = torch.rand((16, 16, 16))
+    b = a + 0.5 * torch.randn_like(a)  # Partially correlated copy
+
+    # Compute both standard and modified FSC
+    fsc_standard = fourier_shell_correlation(a, b)
+    fsc_modified = modified_fourier_shell_correlation(
+        a, b, torch.ones(16, 16, 16)
+    )
+
+    # Same number of shells
+    assert fsc_standard.shape == fsc_modified.shape
+
+    # Pearson correlation between curves should be > 0.8 (trends agree)
+    std_centered = fsc_standard - fsc_standard.mean()
+    mod_centered = fsc_modified - fsc_modified.mean()
+    pearson = (std_centered * mod_centered).sum() / (
+        torch.sqrt((std_centered**2).sum() * (mod_centered**2).sum())
+    )
+    assert pearson > 0.8, f"Pearson correlation {pearson:.3f} not > 0.8"
+
+
+def test_mfsc_uncorrelated_noise_with_mask_2d():
+    """TEST-02: Uncorrelated noise with circular mask gives near-zero non-DC correlations (2D)."""
+    torch.manual_seed(42)
+    a = torch.randn(32, 32)
+    torch.manual_seed(137)
+    b = torch.randn(32, 32)
+    mask = _circular_mask(32, 32)
+
+    result = modified_fourier_ring_correlation(a, b, mask)
+
+    # DC shell is always 1.0
+    assert result[0] == 1.0
+
+    # Mean of absolute non-DC correlations should be small
+    assert result[1:].abs().mean() < 0.15, (
+        f"Mean |correlation| {result[1:].abs().mean():.3f} not < 0.15"
+    )
+
+
+def test_mfsc_uncorrelated_noise_with_mask_3d():
+    """TEST-02: Uncorrelated noise with spherical mask gives near-zero non-DC correlations (3D)."""
+    torch.manual_seed(42)
+    a = torch.randn(16, 16, 16)
+    torch.manual_seed(137)
+    b = torch.randn(16, 16, 16)
+    mask = _spherical_mask(16, 16, 16)
+
+    result = modified_fourier_shell_correlation(a, b, mask)
+
+    # DC shell is always 1.0
+    assert result[0] == 1.0
+
+    # Mean of absolute non-DC correlations should be small
+    assert result[1:].abs().mean() < 0.15, (
+        f"Mean |correlation| {result[1:].abs().mean():.3f} not < 0.15"
+    )
+
+
+def test_mfsc_identical_data_with_mask_2d():
+    """TEST-03: Identical data with circular mask gives near-one correlations (2D)."""
+    torch.manual_seed(42)
+    a = torch.rand(32, 32)
+    b = a.clone()
+    mask = _circular_mask(32, 32)
+
+    result = modified_fourier_ring_correlation(a, b, mask)
+
+    # All shells should be near 1.0
+    assert torch.allclose(result, torch.ones_like(result), atol=0.05), (
+        f"Max deviation from 1.0: {(result - 1.0).abs().max():.4f}"
+    )
+
+
+def test_mfsc_identical_data_with_mask_3d():
+    """TEST-03: Identical data with spherical mask gives near-one correlations (3D)."""
+    torch.manual_seed(42)
+    a = torch.rand(16, 16, 16)
+    b = a.clone()
+    mask = _spherical_mask(16, 16, 16)
+
+    result = modified_fourier_shell_correlation(a, b, mask)
+
+    # All shells should be near 1.0
+    assert torch.allclose(result, torch.ones_like(result), atol=0.05), (
+        f"Max deviation from 1.0: {(result - 1.0).abs().max():.4f}"
+    )
+
+
+def test_mfsc_output_shapes_extended():
+    """TEST-04: Verify output shapes for non-square, non-cubic, batched, and multi-batch inputs."""
+    torch.manual_seed(42)
+
+    # Non-square 2D: (20, 32) -> output (11,) i.e. min(20,32)//2+1
+    a_2d = torch.rand(20, 32)
+    mask_2d = torch.ones(20, 32)
+    result_2d = modified_fourier_ring_correlation(a_2d, a_2d.clone(), mask_2d)
+    assert result_2d.shape == (11,), f"Expected (11,), got {result_2d.shape}"
+
+    # Non-cubic 3D: (12, 16, 20) -> output (7,) i.e. min(12,16,20)//2+1
+    a_3d = torch.rand(12, 16, 20)
+    mask_3d = torch.ones(12, 16, 20)
+    result_3d = modified_fourier_shell_correlation(a_3d, a_3d.clone(), mask_3d)
+    assert result_3d.shape == (7,), f"Expected (7,), got {result_3d.shape}"
+
+    # Batched 2D with non-trivial mask: (3, 24, 24) input, (24, 24) mask -> output (3, 13)
+    a_batch_2d = torch.rand(3, 24, 24)
+    mask_batch_2d = _circular_mask(24, 24)
+    result_batch_2d = modified_fourier_ring_correlation(
+        a_batch_2d, a_batch_2d.clone(), mask_batch_2d
+    )
+    assert result_batch_2d.shape == (3, 13), (
+        f"Expected (3, 13), got {result_batch_2d.shape}"
+    )
+
+    # Batched 3D: (2, 12, 12, 12) input, (12, 12, 12) mask -> output (2, 7)
+    a_batch_3d = torch.rand(2, 12, 12, 12)
+    mask_batch_3d = _spherical_mask(12, 12, 12)
+    result_batch_3d = modified_fourier_shell_correlation(
+        a_batch_3d, a_batch_3d.clone(), mask_batch_3d
+    )
+    assert result_batch_3d.shape == (2, 7), (
+        f"Expected (2, 7), got {result_batch_3d.shape}"
+    )
+
+    # Multi-batch dims: (2, 3, 16, 16) input, (16, 16) mask -> output (2, 3, 9)
+    a_multi = torch.rand(2, 3, 16, 16)
+    mask_multi = torch.ones(16, 16)
+    result_multi = modified_fourier_ring_correlation(
+        a_multi, a_multi.clone(), mask_multi
+    )
+    assert result_multi.shape == (2, 3, 9), (
+        f"Expected (2, 3, 9), got {result_multi.shape}"
+    )
